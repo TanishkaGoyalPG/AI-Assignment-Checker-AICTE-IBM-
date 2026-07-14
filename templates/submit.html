@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Submit Assignment{% endblock %}
+{% block page_title %}Submit Assignment for Analysis{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;">
+  <div class="card">
+    <form method="POST" action="{{ url_for('submit') }}" enctype="multipart/form-data" id="submitForm">
+
+      <!-- ── Student selection ─────────────────────────────────────────── -->
+      <div class="card-title">Student Information</div>
+
+      <div class="form-group">
+        <label>Select Existing Student</label>
+        <select name="student_id" id="studentSelect">
+          <option value="__new__">+ Add New Student</option>
+          {% for s in students %}
+          <option value="{{ s.id }}">{{ s.name }} ({{ s.course }}) — ID: {{ s.id }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div id="newStudentFields" style="display:none;">
+        <div class="two-col">
+          <div class="form-group">
+            <label>Student Full Name *</label>
+            <input type="text" name="new_student_name" placeholder="e.g. Priya Sharma"/>
+          </div>
+          <div class="form-group">
+            <label>Course / Department *</label>
+            <select name="new_student_course">
+              {% for c in courses %}
+              <option>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider"/>
+
+      <!-- ── Assignment details ────────────────────────────────────────── -->
+      <div class="card-title">Assignment Details</div>
+
+      <div class="form-group">
+        <label>Assignment Title *</label>
+        <input type="text" name="assignment_title"
+               placeholder="e.g. Unit 3 Research Paper – Machine Learning Applications" required/>
+      </div>
+
+      <!-- ── File upload ───────────────────────────────────────────────── -->
+      <div class="form-group">
+        <label>Assignment File *</label>
+        <div class="file-drop" id="dropZone">
+          <input type="file" name="assignment_file" id="fileInput"
+                 accept=".pdf,.docx,.txt"/>
+          <div id="dropLabel">
+            <p style="font-size:22px;">📄</p>
+            <p><strong>Click to browse</strong> or drag &amp; drop</p>
+            <p>PDF, DOCX, or TXT &nbsp;·&nbsp; max {{ max_upload_mb }} MB</p>
+          </div>
+          <div id="fileSelected" style="display:none;color:var(--green);font-weight:600;"></div>
+        </div>
+      </div>
+
+      <div class="text-muted mb-2">
+        ℹ️ The system will automatically compare this submission against other students
+        in the same course and against this student's past work for style-shift detection.
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="submitBtn">
+        Analyse Submission
+      </button>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  const sel    = document.getElementById('studentSelect');
+  const newDiv = document.getElementById('newStudentFields');
+  sel.addEventListener('change', () => {
+    newDiv.style.display = sel.value === '__new__' ? 'block' : 'none';
+  });
+
+  const dropZone  = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const selected  = document.getElementById('fileSelected');
+  const dropLabel = document.getElementById('dropLabel');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag');
+    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; showFile(e.dataTransfer.files[0]); }
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) showFile(fileInput.files[0]); });
+
+  function showFile(f) {
+    dropLabel.style.display = 'none';
+    selected.style.display  = 'block';
+    selected.textContent    = '✓ ' + f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+  }
+
+  document.getElementById('submitForm').addEventListener('submit', () => {
+    const btn = document.getElementById('submitBtn');
+    btn.textContent = 'Analysing… please wait';
+    btn.disabled = true;
+  });
+</script>
+{% endblock %}

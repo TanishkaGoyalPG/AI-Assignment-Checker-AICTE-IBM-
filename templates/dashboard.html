@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Faculty Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Stat cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Total Reports</div>
+    <div class="value" style="color:#2563eb;">{{ stats.total }}</div>
+    <div class="sub">All time</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Critical Risk</div>
+    <div class="value" style="color:#7f1d1d;">{{ stats.critical }}</div>
+    <div class="sub">Requires immediate action</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">High Risk</div>
+    <div class="value" style="color:#dc2626;">{{ stats.high }}</div>
+    <div class="sub">Strong concern</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Awaiting Decision</div>
+    <div class="value" style="color:#d97706;">{{ stats.pending }}</div>
+    <div class="sub">Pending faculty review</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Students</div>
+    <div class="value" style="color:#16a34a;">{{ students|length }}</div>
+    <div class="sub">Registered</div>
+  </div>
+</div>
+
+<!-- Reports table -->
+<div class="card">
+  <div class="flex-between mb-2">
+    <div class="card-title" style="margin-bottom:0;">Recent Submissions</div>
+    <a href="{{ url_for('submit_form') }}" class="btn btn-primary btn-sm">+ New Submission</a>
+  </div>
+
+  {% if reports %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Assignment</th>
+          <th>Course</th>
+          <th>Risk Score</th>
+          <th>Risk Level</th>
+          <th>AI Likelihood</th>
+          <th>Decision</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td><strong>{{ r.student_name }}</strong></td>
+          <td>{{ r.assignment_title }}</td>
+          <td><span class="text-muted">{{ r.course }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress" style="width:60px;">
+                <div class="progress-bar"
+                     style="width:{{ r.overall_risk_score }}%;
+                            background:{{ r.risk_color }};"></div>
+              </div>
+              <span>{{ r.overall_risk_score }}%</span>
+            </div>
+          </td>
+          <td>
+            {% set lvl = r.risk_level|lower %}
+            <span class="badge badge-{{ lvl }}">{{ r.risk_level }}</span>
+          </td>
+          <td>
+            {% set ai_pct = r.metrics.ai_heuristic_pct if r.metrics else 0 %}
+            <span class="text-muted">{{ ai_pct }}%</span>
+          </td>
+          <td>
+            {% if r.faculty_decision %}
+              {% set dec = r.faculty_decision|lower %}
+              <span class="badge badge-{{ dec }}">{{ r.faculty_decision }}</span>
+            {% else %}
+              <span class="badge badge-pending">Pending</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">{{ r.analyzed_at[:10] if r.analyzed_at else '–' }}</td>
+          <td>
+            <a href="{{ url_for('view_report', report_id=r.id) }}" class="btn btn-outline btn-sm">View</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:40px;color:var(--muted);">
+    <p style="font-size:16px;">No submissions yet.</p>
+    <a href="{{ url_for('submit_form') }}" class="btn btn-primary mt-2">Upload First Assignment</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

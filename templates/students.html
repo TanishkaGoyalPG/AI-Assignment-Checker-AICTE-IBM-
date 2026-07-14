@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+{% block page_title %}Student Management{% endblock %}
+
+{% block content %}
+<div class="two-col" style="align-items:start;">
+
+  <!-- Student list -->
+  <div class="card">
+    <div class="card-title">Registered Students ({{ students|length }})</div>
+    {% if students %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Course</th>
+            <th>Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td><code style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ s.id }}</code></td>
+            <td><strong>{{ s.name }}</strong></td>
+            <td>{{ s.course }}</td>
+            <td class="text-muted">{{ s.created_at[:10] if s.created_at else '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No students registered yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Add student form -->
+  <div class="card">
+    <div class="card-title">Add New Student</div>
+    <form method="POST" action="{{ url_for('add_student') }}">
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" name="name" placeholder="e.g. Rahul Verma" required/>
+      </div>
+      <div class="form-group">
+        <label>Course / Department *</label>
+        <select name="course">
+          {% for c in courses %}
+          <option>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Add Student</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

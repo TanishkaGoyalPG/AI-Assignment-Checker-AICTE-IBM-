@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Report – {{ report.assignment_title }}{% endblock %}
+{% block page_title %}Plagiarism Intelligence Report{% endblock %}
+
+{% block content %}
+
+<!-- ── HEADER ROW ──────────────────────────────────────────────────────────── -->
+<div class="flex-between mb-2">
+  <div>
+    <h2 style="font-size:18px;font-weight:700;">{{ report.assignment_title }}</h2>
+    <p class="text-muted">
+      {{ report.student_name }} &nbsp;·&nbsp;
+      {{ report.course }} &nbsp;·&nbsp;
+      {{ report.analyzed_at[:16].replace('T',' ') if report.analyzed_at else '–' }} UTC
+    </p>
+  </div>
+  <div class="flex gap-2">
+    <a href="/api/report/{{ report.id }}" target="_blank" class="btn btn-outline btn-sm">JSON ↗</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Dashboard</a>
+  </div>
+</div>
+
+{% if report.get('demo_mode') %}
+<div class="flash flash-error" style="margin-bottom:20px;">
+  ⚠️ <strong>Demo Mode:</strong> IBM Watsonx.ai credentials are not configured.
+  Showing heuristic results only. See <code>.env.example</code> to enable full AI analysis.
+</div>
+{% endif %}
+
+<!-- ── TOP METRICS ─────────────────────────────────────────────────────────── -->
+<div class="three-col mb-2">
+
+  <!-- Risk Gauge -->
+  <div class="card" style="border-top: 4px solid {{ report.risk_color }};">
+    <div class="gauge-wrap">
+      <div class="gauge-val" style="color:{{ report.risk_color }};">
+        {{ report.overall_risk_score }}<span class="gauge-pct">%</span>
+      </div>
+      <div class="gauge-label" style="color:{{ report.risk_color }};">
+        {{ report.risk_level }} RISK
+      </div>
+    </div>
+    <div class="progress mt-1">
+      <div class="progress-bar" style="width:{{ report.overall_risk_score }}%; background:{{ report.risk_color }};"></div>
+    </div>
+  </div>
+
+  <!-- Similarity Breakdown -->
+  <div class="card">
+    <div class="card-title">Similarity Breakdown</div>
+    {% set m = report.metrics or {} %}
+    <div style="font-size:13px;">
+      <div class="flex-between mb-1">
+        <span>Exact n-gram overlap</span>
+        <strong>{{ m.exact_overlap_pct or 0 }}%</strong>
+      </div>
+      <div class="progress mb-1">
+        <div class="progress-bar" style="width:{{ m.exact_overlap_pct or 0 }}%;background:#ef4444;"></div>
+      </div>
+      <div class="flex-between mb-1">
+        <span>Cosine similarity</span>
+        <strong>{{ m.cosine_sim_pct or 0 }}%</strong>
+      </div>
+      <div class="progress mb-1">
+        <div class="progress-bar" style="width:{{ m.cosine_sim_pct or 0 }}%;background:#f59e0b;"></div>
+      </div>
+      <div class="flex-between mb-1">
+        <span>AI-likelihood</span>
+        <strong>{{ m.ai_heuristic_pct or 0 }}%</strong>
+      </div>
+      <div class="progress mb-1">
+        <div class="progress-bar" style="width:{{ m.ai_heuristic_pct or 0 }}%;background:#7c3aed;"></div>
+      </div>
+      <div class="flex-between">
+        <span>Style similarity to baseline</span>
+        <strong>{{ m.style_sim_pct or 0 }}%</strong>
+      </div>
+      <div class="progress">
+        <div class="progress-bar" style="width:{{ m.style_sim_pct or 0 }}%;background:#2563eb;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flags -->
+  <div class="card">
+    <div class="card-title">AI Analysis Flags</div>
+    <div style="font-size:13px;">
+
+      {% set ai_assess = report.ai_generation_assessment or {} %}
+      <div class="flex-between mb-1" style="padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>AI-Generated Content</span>
+        {% set ai_lk = ai_assess.get('likelihood','LOW') %}
+        <span class="badge badge-{% if ai_lk=='HIGH' %}high{% elif ai_lk=='MODERATE' %}moderate{% else %}low{% endif %}">
+          {{ ai_lk }}
+        </span>
+      </div>
+
+      {% set ss = report.style_shift_assessment or {} %}
+      <div class="flex-between mb-1" style="padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>Style Shift Detected</span>
+        {% if ss.get('detected') %}
+          <span class="badge badge-high">YES</span>
+        {% else %}
+          <span class="badge badge-low">NO</span>
+        {% endif %}
+      </div>
+
+      <div class="flex-between" style="padding:6px 0;border-bottom:1px solid var(--border);">
+        <span>Plagiarism Type</span>
+        <span class="text-muted">{{ report.plagiarism_type or '—' }}</span>
+      </div>
+
+      <div class="flex-between" style="padding:6px 0;">
+        <span>Confidence</span>
+        <span class="text-muted">{{ report.confidence_level or '—' }}</span>
+      </div>
+
+      <div class="mt-1 text-muted" style="font-size:11px;">
+        Model: {{ report.model_used or 'offline' }}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── EXECUTIVE SUMMARY ───────────────────────────────────────────────────── -->
+<div class="card mb-2">
+  <div class="card-title">Executive Summary</div>
+  <p style="font-size:14px;line-height:1.7;">{{ report.executive_summary or 'No summary available.' }}</p>
+</div>
+
+<!-- ── TWO-COL: Suspicious Passages + AI & Style ──────────────────────────── -->
+<div class="two-col mb-2">
+
+  <!-- Suspicious Passages -->
+  <div class="card">
+    <div class="card-title">
+      Suspicious Passages
+      {% set sp = report.suspicious_passages or [] %}
+      <span class="badge badge-high" style="font-size:10px;margin-left:6px;">{{ sp|length }}</span>
+    </div>
+    {% if sp %}
+      {% for p in sp %}
+      <div class="passage">
+        <div class="passage-text">«{{ p.text }}»</div>
+        <div class="passage-meta">
+          <span class="badge badge-{% if p.type=='VERBATIM' %}high{% elif p.type=='AI_GENERATED' %}moderate{% else %}moderate{% endif %}" style="font-size:10px;">{{ p.type }}</span>
+          &nbsp;{{ p.reason }}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">No suspicious passages identified.</p>
+    {% endif %}
+  </div>
+
+  <!-- AI Assessment + Style Shift -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="card">
+      <div class="card-title">AI-Generation Assessment</div>
+      {% set ai_a = report.ai_generation_assessment or {} %}
+      <p style="font-size:13px;">{{ ai_a.get('evidence', 'No evidence data.') }}</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Style Shift Assessment</div>
+      {% set ss_a = report.style_shift_assessment or {} %}
+      <p style="font-size:13px;">{{ ss_a.get('explanation', 'No style data available.') }}</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Matched Source Summary</div>
+      <p style="font-size:13px;">{{ report.matched_source_summary or 'Not available.' }}</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── RECOMMENDATIONS ────────────────────────────────────────────────────── -->
+<div class="two-col mb-2">
+  <div class="card">
+    <div class="card-title">Recommendations for Faculty</div>
+    {% set recs = report.recommendations or [] %}
+    {% if recs %}
+    <ol style="padding-left:16px;font-size:13px;line-height:2;">
+      {% for r in recs %}<li>{{ r }}</li>{% endfor %}
+    </ol>
+    {% else %}
+    <p class="text-muted">No recommendations available.</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-title">Corrective Actions for Student</div>
+    {% set acts = report.corrective_actions_for_student or [] %}
+    {% if acts %}
+    <ul style="padding-left:16px;font-size:13px;line-height:2;">
+      {% for a in acts %}<li>{{ a }}</li>{% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted">No corrective actions listed.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── FACULTY DECISION ────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-title">Faculty Decision</div>
+
+  {% if report.faculty_decision %}
+  <div class="flex gap-2 mb-2">
+    <span>Decision recorded:&nbsp;</span>
+    {% set dec = report.faculty_decision|lower %}
+    <span class="badge badge-{{ dec }}" style="font-size:13px;">{{ report.faculty_decision }}</span>
+    <span class="text-muted">by {{ report.faculty_name or 'Faculty' }}
+      on {{ report.decided_at[:10] if report.decided_at else '–' }}</span>
+  </div>
+  {% if report.faculty_notes %}
+  <div class="passage" style="border-left-color:var(--accent);">
+    <div class="passage-text">{{ report.faculty_notes }}</div>
+  </div>
+  {% endif %}
+  <hr class="divider"/>
+  <p class="text-muted" style="font-size:12px;">Update decision below:</p>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('faculty_decide', report_id=report.id) }}">
+    <div class="form-group">
+      <label>Faculty Name</label>
+      <input type="text" name="faculty_name"
+             value="{{ report.faculty_name or '' }}"
+             placeholder="Your name" style="max-width:320px;"/>
+    </div>
+
+    <div class="form-group">
+      <label>Decision</label>
+      <div class="decision-options">
+        <div class="decision-radio">
+          <input type="radio" name="decision" id="dec_confirmed" value="CONFIRMED"
+                 {{ 'checked' if report.faculty_decision=='CONFIRMED' }}>
+          <label for="dec_confirmed">🚫 Confirm Plagiarism</label>
+        </div>
+        <div class="decision-radio">
+          <input type="radio" name="decision" id="dec_dismissed" value="DISMISSED"
+                 {{ 'checked' if report.faculty_decision=='DISMISSED' }}>
+          <label for="dec_dismissed">✅ Dismiss Flag</label>
+        </div>
+        <div class="decision-radio">
+          <input type="radio" name="decision" id="dec_referred" value="REFERRED"
+                 {{ 'checked' if report.faculty_decision=='REFERRED' }}>
+          <label for="dec_referred">↗ Refer to Committee</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Notes / Justification</label>
+      <textarea name="notes" placeholder="Optional notes for the academic record…">{{ report.faculty_notes or '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Decision</button>
+  </form>
+</div>
+
+{% endblock %}
